@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                               🎨 ENHANCED GPS TRACKER LOGGING 🎨                               -->
+    <!--                          Colorful Design for Easy Development & Debugging                      -->
+    <!--                                    Based on Your Existing Config                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Properties from your original config -->
+    <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
+    <property name="LOG_FILE" value="${LOG_FILE:-gps-tracker}"/>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                    🎨 COLORFUL CONSOLE APPENDERS                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Enhanced Console Appender with Colors -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %magenta([%15.15thread]) %yellow(%-40.40logger{40}) %green(➤) %msg%n%red(%ex)</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- GPS-Specific Enhanced Console -->
+    <appender name="GPS_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %magenta([%15.15thread]) %yellow(%-35.35logger{35}) %green(🔄) %msg%n%red(%ex)</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                      📁 FILE APPENDERS                                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Your Original File Appender - Enhanced -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n%ex</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Your Original Async File Appender -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>1000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+    
+    <!-- Your Original Error File Appender -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${LOG_FILE}-error-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>50MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n%ex</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- GPS Processing File - New Enhanced Appender -->
+    <appender name="GPS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/gps-processing.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/gps-processing-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n%ex</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Your Original MQTT File Appender -->
+    <appender name="MQTT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/mqtt.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/mqtt-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Your Original Performance File Appender - Enhanced -->
+    <appender name="PERFORMANCE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/performance.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/performance-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- New Validation Errors File -->
+    <appender name="VALIDATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/validation-errors.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/validation-errors-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %logger{50} - %msg%n%ex</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                    📊 ENHANCED LOGGER CONFIGURATIONS                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- GPS Data Processor - Enhanced Logging -->
+    <logger name="com.GpsTracker.Thinture.service.processing.GpsDataProcessor" level="DEBUG" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </logger>
+    
+    <!-- GPS Data Validator - Enhanced Logging -->
+    <logger name="com.GpsTracker.Thinture.service.processing.GpsDataValidator" level="DEBUG" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+        <appender-ref ref="VALIDATION_FILE"/>
+    </logger>
+    
+    <!-- Data Transformer - Enhanced Logging -->
+    <logger name="com.GpsTracker.Thinture.service.processing.DataTransformer" level="DEBUG" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+    </logger>
+    
+    <!-- WebSocket & Broadcasting -->
+    <logger name="com.GpsTracker.Thinture.service.websocket" level="INFO" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+    </logger>
+    
+    <!-- Database & Persistence -->
+    <logger name="com.GpsTracker.Thinture.service.persistence" level="INFO" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+    </logger>
+    
+    <!-- Vehicle Service -->
+    <logger name="com.GpsTracker.Thinture.service.VehicleService" level="INFO" additivity="false">
+        <appender-ref ref="GPS_CONSOLE"/>
+        <appender-ref ref="GPS_FILE"/>
+    </logger>
+    
+    <!-- Your Original MQTT Logger - Enhanced -->
+    <logger name="com.GpsTracker.Thinture.service.mqtt" level="INFO" additivity="false">
+        <appender-ref ref="MQTT_FILE"/>
+        <appender-ref ref="GPS_CONSOLE"/>
+    </logger>
+    
+    <!-- Your Original Performance Logger - Enhanced -->
+    <logger name="com.GpsTracker.Thinture.monitoring.PerformanceMonitor" level="INFO" additivity="false">
+        <appender-ref ref="PERFORMANCE_FILE"/>
+        <appender-ref ref="GPS_CONSOLE"/>
+    </logger>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                   🎯 SPECIAL MONITORING LOGGERS                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Performance Monitoring Logger -->
+    <logger name="PERFORMANCE" level="INFO" additivity="false">
+        <appender-ref ref="PERFORMANCE_FILE"/>
+        <appender-ref ref="GPS_CONSOLE"/>
+    </logger>
+    
+    <!-- Metrics Logger -->
+    <logger name="METRICS" level="INFO" additivity="false">
+        <appender-ref ref="PERFORMANCE_FILE"/>
+        <appender-ref ref="GPS_CONSOLE"/>
+    </logger>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                     🔧 FRAMEWORK LOGGERS                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Spring Framework -->
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+    <logger name="org.springframework.transaction" level="INFO"/>
+    
+    <!-- Hibernate/JPA -->
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    
+    <!-- Jackson JSON -->
+    <logger name="com.fasterxml.jackson" level="WARN"/>
+    
+    <!-- Connection Pool -->
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    
+    <!-- MQTT -->
+    <logger name="org.eclipse.paho.client.mqttv3" level="INFO"/>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    <!--                                    📋 ENHANCED PROFILE CONFIGURATIONS                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Development Profile - Enhanced with Colorful Logging -->
+    <springProfile name="dev">
+        <logger name="com.GpsTracker.Thinture" level="DEBUG"/>
+        <logger name="com.GpsTracker.Thinture.service.processing" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        <logger name="com.zaxxer.hikari" level="DEBUG"/>
+        <logger name="org.eclipse.paho.client.mqttv3" level="DEBUG"/>
+        
+        <root level="INFO">
+            <appender-ref ref="GPS_CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+    
+    <!-- Production Profile - Optimized -->
+    <springProfile name="prod">
+        <logger name="com.GpsTracker.Thinture" level="INFO"/>
+        <logger name="com.GpsTracker.Thinture.service.processing" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="com.zaxxer.hikari" level="INFO"/>
+        <logger name="org.eclipse.paho.client.mqttv3" level="WARN"/>
+        
+        <root level="WARN">
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+    
+    <!-- Testing Profile - Minimal -->
+    <springProfile name="test">
+        <logger name="com.GpsTracker.Thinture" level="INFO"/>
+        <logger name="com.GpsTracker.Thinture.service.processing" level="DEBUG"/>
+        
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+    
+    <!-- Default Profile - Enhanced -->
+    <springProfile name="!dev,!prod,!test">
+        <root level="INFO">
+            <appender-ref ref="GPS_CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+    
+</configuration>

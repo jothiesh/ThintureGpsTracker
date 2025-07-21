@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thinture GPS</title>
+    <link rel="icon" type="image/x-icon" href="/THINTURE_IMAGE/favicon.jpg">
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+	<link rel="stylesheet" type="text/css" th:href="@{/css/style.css}">
+	<link rel="stylesheet" type="text/css" th:href="@{/css/map4style.css}">
+    <!-- WebSocket Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+	<script src="https://cdn.jsdelivr.net/npm/tz-lookup@6.1.25/tz.min.js"></script>
+<style>
+	#deviceList {
+	  list-style-type: none;
+	  padding-left: 0;
+	  max-height: 300px;
+	  overflow-y: auto;
+	}
+
+	#deviceList li {
+	  padding: 6px 12px;
+	  border-bottom: 1px solid #ddd;
+	  font-size: 14px;
+	}
+
+</style>
+	
+</head>
+<body>
+	<header th:insert="navigation :: navbar"></header>
+		<!-- REMOVE THIS -->
+		<button id="toggleButton" class="btn btn-primary" style="position: fixed; top: 190px;width: 50px; right: 10px; z-index: 9999;">
+				    ☰
+				</button>
+
+
+
+
+			<div id="mobileCloseBtn" style="text-align: right; margin: 5px 0; display: none;">
+			    <button class="btn btn-sm btn" style="font-size: 13px; color:red;" onclick="closeSidebar()">✖</button>
+			</div>
+
+			<!-- Map Container -->
+			<div id="map"></div>
+
+
+			<div id="speedAlertPopup" class="speed-alert-popup">
+			    <span class="close-btn" onclick="closeSpeedAlert()">×</span>
+			    <h4>🚨 Overspeed Alert</h4>
+			    <p><strong>Vehicle No:</strong> <span id="alertDeviceID"></span></p>
+			    <p><strong>Speed:</strong> <span id="alertSpeed"></span> km/h</p>
+			</div>
+
+
+
+
+			
+
+
+
+
+			<audio id="overspeedAudio" src="/THINTURE_IMAGE/alertsspeed.mp3" preload="auto"></audio>
+
+			<!-- Overlay for Modal -->
+
+
+			<!-- Vehicle Details Modal -->
+			<div id="vehicleDetailsModal" class="popup-container">
+			    <div class="popup-header">
+			        <strong>Vehicle Details</strong>
+					<button onclick="testVoice()">🔊 Test Voice</button>
+
+			        <span class="close-btn" onclick="closePopup()">×</span>
+			    </div>
+			    <div class="popup-content">
+			        <table id="vehicleDetailsTable" class="popup-table">
+			            <tr><td><strong>Vehicle No:</strong></td><td id="popup-deviceID">Loading...</td></tr>
+			            <tr><td><strong>Serial number:</strong></td><td id="popup-serialno">Loading...</td></tr>
+			            <tr><td><strong>Owner:</strong></td><td id="popup-ownerName">Loading...</td></tr>
+			            <tr><td><strong>Model:</strong></td><td id="popup-model">Loading...</td></tr>
+			            <tr><td><strong>SIM Number:</strong></td><td id="popup-simnumber">Loading...</td></tr>
+						<tr><td><strong>Time Interval:</strong></td><td id="popup-timeinterval">Loading...</td></tr>
+			        </table>
+			    </div>
+			</div>
+			<!-- Live Camera Video Modal with Two Screens -->
+			<div class="modal fade" id="liveCameraModal" tabindex="-1" aria-labelledby="liveCameraLabel" aria-hidden="true">
+			  <div class="modal-dialog modal-xl modal-dialog-centered">
+			    <div class="modal-content">
+			      <div class="modal-header">
+			        <h5 class="modal-title" id="liveCameraLabel">🎥 Live Camera Demo - Front & Rear</h5>
+					 <div class="d-flex align-items-center gap-2 flex-shrink-1">
+						<div id="frontCameraAlert" style="font-weight:bold; font-size:0.9rem; color:orange; text-align:right;"></div>
+						<div id="rearCameraAlert" style="font-weight:bold; font-size:0.9rem; color:red; text-align:right;"></div>
+
+					    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					  </div>
+					</div>
+				  <!-- Multiple Alerts at Bottom -->
+				
+
+
+
+			        <!-- Video Streams -->
+					<div class="d-flex justify-content-center flex-wrap gap-4">
+					  <div class="text-center position-relative">
+					    <h6>Front Camera</h6>
+					    <video
+					      id="frontVideo"
+					      src="/THINTURE_IMAGE/frontcam.mp4"
+					      autoplay
+					      muted
+					      loop
+					      playsinline
+					      class="custom-video"
+					    ></video>
+					    <div style="
+					      position: absolute;
+					      top: 8px;
+					      right: 8px;
+					      background:white;
+					      color: green;
+					      padding: 2px 6px;
+					      font-size: 11px;
+					      font-weight: bold;
+					      border-radius: 4px;
+					    ">
+					      🔴 LIVE
+					    </div>
+					    <div id="frontAlert" class="alert-text"></div>
+					  </div>
+					  <div class="text-center position-relative">
+					    <h6>Rear Camera</h6>
+					    <video
+					      id="rearVideo"
+					      src="/THINTURE_IMAGE/rearcam.mp4"
+					      autoplay
+					      muted
+					      loop
+					      playsinline
+					      class="custom-video"
+					    ></video>
+					    <div style="
+					      position: absolute;
+					      top: 8px;
+					      right: 8px;
+					      background:white;
+					      color: green;
+					      padding: 2px 6px;
+					      font-size: 11px;
+					      font-weight: bold;
+					      border-radius: 4px;
+					    ">
+					      🔴 LIVE
+					    </div>
+						<div id="frontAlert" class="alert-text"></div>
+						<div id="rearAlert" class="alert-text"></div>
+
+					  </div>
+					</div>
+					</div>
+
+
+			      </div>
+			    </div>
+			  </div>
+
+			<!-- Sidebar -->
+
+			<div class="col-md-6 col-12" id="sidebar">
+				<div id="mobileCloseBtn" style="text-align: right; margin: 5px 0; display: none;">
+					  <button class="btn btn-sm btn" style="font-size: 13px; color:red"; onclick="closeSidebar()">✖</button>
+					</div>
+			    <div class="custom-tab-bar">
+			        <button class="custom-tab-btn active" onclick="showSidebarTab('devicesTab', this)">Device</button>
+			        <button class="custom-tab-btn" onclick="showSidebarTab('alertsTab', this)">Alerts</button>
+					 <button class="custom-tab-btn" onclick="showSidebarTab('activeTab', this)">Active/Inactive</button>
+			    </div>
+				
+			    <!-- Device Tab Content -->
+			    <div id="devicesTab" class="custom-tab-content active">
+			        <!--<h2>Tracker Details</h2>-->
+					<div class="d-flex flex-column p-2" style="gap: 10px;">
+					  <div class="d-flex justify-content-between align-items-center flex-wrap">
+					    <input type="text" id="searchBar" placeholder="Search by Device ID" class="form-control mb-2">
+					    
+					  </div>
+
+					  <div class="table-responsive">
+					    <table class="table table-bordered table-sm text-center mb-0">
+					      <thead class="table-dark">
+					        <tr>
+					          <th>Status</th>
+					          <th>Vehicle No</th>
+							  <th>Time Interval</th>
+					          <th>Last Upload</th>
+					          <th>Select Device</th>
+					        </tr>
+					      </thead>
+					      <tbody id="trackerTableBody">
+					        <!-- dynamically injected -->
+					      </tbody>
+					    </table>
+						<div id="sidebarPagination" class="pagination-controls mt-2"></div>
+					  </div>
+					</div>
+
+			    <!-- Alerts Tab Content -->
+				<!-- Alerts Tab Content -->
+				<div id="alertsTab" class="custom-tab-content">
+				    <div class="position-fixed top-150px end-0 m-3 z-3 text-end">
+				        <label for="muteToggleBtn" class="me-2 fw-bold text-black">🔊 Alert Sound</label>
+				        <button id="muteToggleBtn" class="btn btn-sm btn-outline-black">🔇 Mute</button>
+				    </div>
+
+				   
+				</div>
+
+								  
+
+				<div id="activeTab" class="custom-tab-content">
+				    <div class="status-summary">
+				        <p><strong>Total Vehicles:</strong> <span id="totalCount" onclick="fetchDevicesByStatus('total')">0</span></p>
+				        <p><strong>Running:</strong> <span id="runningCount" onclick="fetchDevicesByStatus('running')">0</span></p>
+				        <p><strong>Idle:</strong> <span id="idleCount" onclick="fetchDevicesByStatus('idle')">0</span></p>
+				        <p><strong>Parked:</strong> <span id="parkedCount" onclick="fetchDevicesByStatus('parked')">0</span></p>
+				        <p><strong>Offline:</strong> <span id="lostCount" onclick="fetchDevicesByStatus('lost')">0</span></p>
+				    </div>
+
+				    <div id="statusDevicePopup" class="device-list-popup">
+				        <h6 id="statusTitle">Status Devices</h6>
+				        <ul id="deviceList"></ul>
+				        <div id="paginationControls" class="d-flex justify-content-between align-items-center mt-2"></div>
+				    </div>
+				</div>
+
+							
+
+			<!-- Popup Overlay -->
+			<div id="popupOverlay" class="popup-overlay" onclick="closePopup()"></div>
+
+			<!-- Vehicle Details Modal -->
+
+
+
+
+		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+		<!-- Add before your main <script> -->
+		<script src="https://cdn.jsdelivr.net/npm/tz-lookup@6.1.25/tz.min.js"></script>
+
+		<script>
+			class VehicleTracker {
+					
+				constructor(mapElementId) {
+							
+						    const mapElement = document.getElementById(mapElementId);
+						    if (!mapElement) {
+						        console.error("❌ Map element not found! Make sure the ID is correct.");
+						        return;
+						    }
+
+						    this.map = L.map(mapElementId, {
+						        zoomControl: false
+						    }).setView([24.36857, 54.50229], 4);
+
+						    if (!this.map) {
+						        console.error("❌ Map failed to initialize.");
+						        return;
+						    }
+
+						    // OSM English layer
+						    const osmEnglish = L.tileLayer('https://{s}.tile.openstreetmap.fr/osm-en/{z}/{x}/{y}.png', {
+						        maxZoom: 15,
+						        attribution: '&copy; OpenStreetMap contributors'
+						    });
+
+						    // Carto Light layer
+						    const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+						        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+						        subdomains: 'abcd',
+						        maxZoom: 19
+						    });
+
+						    // Add default layer to map
+						    osmEnglish.addTo(this.map);
+
+						    // Add layer switcher with position bottomright
+						    
+
+						    this.markers = {};
+
+						    // ✅ NEW: Added session management properties
+						    this.stompClient = null;
+						    this.allowedDeviceIDs = [];
+						    this.role = '';
+						    this.id = '';
+						    this.username = '';
+
+						    // ✅ CHANGED: Initialize session first, then WebSocket
+						    this.initializeSession();
+						}
+
+						// ✅ NEW: Initialize session with role-based access
+						initializeSession() {
+						    fetch('/api/devices/session-role')
+						        .then(res => res.json())
+						        .then(session => {
+						            this.username = session.username;
+						            const authorityObj = session.authorities[0];
+						            let authorityStr = '';
+
+						            if (typeof authorityObj === 'string') {
+						                authorityStr = authorityObj;
+						            } else if (typeof authorityObj === 'object' && authorityObj.authority) {
+						                authorityStr = authorityObj.authority;
+						            } else {
+						                throw new Error('Invalid authority format');
+						            }
+
+						            this.role = authorityStr.replace('ROLE_', '').toLowerCase();
+						            this.id = session.id;
+
+						            console.log(`✅ Session: ${this.username} | Role: ${this.role} | ID: ${this.id}`);
+
+						            // No filtering needed—start WebSocket and fetch data
+						            this.initWebSocket();
+						            setTimeout(() => this.fetchVehicleData(), 1000);
+						        })
+						        .catch(err => {
+						            console.error('❌ Session initialization error:', err);
+						            // Fallback if needed
+						            this.initWebSocket();
+						            setTimeout(() => this.fetchVehicleData(), 1000);
+						        });
+						}
+
+					
+
+					fetchVehicleData() {
+							    fetch('/api/vehicle/last/latests-locations/all')
+							        .then(res => res.json())
+							        .then(data => {
+							            data.forEach(vehicle => {
+							                const lat = parseFloat(vehicle.latitude);
+							                const lng = parseFloat(vehicle.longitude);
+							                const speed = parseFloat(vehicle.speed);
+							                const deviceId = vehicle.deviceId || vehicle.deviceID || "N/A";
+
+							                if (!isNaN(lat) && !isNaN(lng)) {
+							                    // ✅ NEW: Apply device filtering if enabled
+							                    const deviceIdUpper = deviceId.trim().toUpperCase();
+							                    if (this.allowedDeviceIDs.length > 0 && !this.allowedDeviceIDs.includes(deviceIdUpper)) {
+							                        return; // Skip this device
+							                    }
+
+							                    // 🔄 Call the existing marker creation method
+							                    this.createOrUpdateMarker(vehicle);
+
+							                    // 🔔 Trigger speed alert
+							                    if (speed > 140 && deviceId !== "N/A") {
+							                        playSpeedAlert(deviceId, speed);
+							                    }
+												
+												
+												const speedLimit = parseFloat(vehicle.speedLimit) || 140;
+												if (speed > speedLimit && deviceId !== "N/A") {
+												    playSpeedAlert(deviceId, speed);
+												}
+
+							                }
+							            });
+							        })
+							        .catch(err => console.error('❌ Error fetching vehicle data:', err));
+							}
+						 getEffectiveStatus(deviceId, recordTimestamp, vehicleStatus, timeIntervals) {
+							  const now = Date.now();
+							  const socketTimestamp = lastSocketUpdate.get(deviceId);
+							  const effectiveTimestamp = socketTimestamp && socketTimestamp > recordTimestamp
+							    ? socketTimestamp
+							    : recordTimestamp;
+
+							  const elapsed = (now - effectiveTimestamp) / 1000;
+							  const isLive = socketTimestamp && (now - socketTimestamp) <= 1000;
+
+							  const [run = 0, park = 0, idle = 0] = (timeIntervals || "0,0,0").split(',').map(x => +x || 0);
+							  const computedStatus = isLive
+							    ? vehicleStatus.toUpperCase()
+							    : computeStatus(vehicleStatus, run, park, idle, elapsed);
+
+							  return {
+							    effectiveTimestamp,
+							    elapsed,
+							    isLive,
+							    computedStatus
+							  };
+							}
+
+							createOrUpdateMarker(vehicle) {
+								const deviceId = (vehicle.deviceId || vehicle.deviceID || "").trim().toUpperCase(); // 📍 createOrUpdateMarker
+
+							  const lat = parseFloat(vehicle.latitude);
+							  const lng = parseFloat(vehicle.longitude);
+							  const latlng = [lat, lng];
+
+							  if (!deviceId || isNaN(lat) || isNaN(lng)) return;
+
+							  const socketTimestamp = lastSocketUpdate.get(deviceId); // ✅ FROM LIVE WebSocket
+							  const recordTimestamp = Date.parse(vehicle.timestamp);  // ✅ From lastLocation fallback
+
+							  const effectiveTimestamp = socketTimestamp && socketTimestamp > recordTimestamp
+							    ? socketTimestamp
+							    : recordTimestamp;
+
+							  const elapsed = (Date.now() - effectiveTimestamp);
+							  const isLive = socketTimestamp && elapsed <= 3000;
+
+							  const speed = vehicle.speed || 0;
+							  const gsmStrength = vehicle.gsmStrength || 0;
+							  const gsmLevel = gsmStrength >= 70 ? "High" : gsmStrength >= 30 ? "Medium" : "Low";
+							  const gsmColor = gsmLevel === "High" ? "#28a745" : gsmLevel === "Medium" ? "#f39c12" : "#e54c3c";
+
+							  const rawStatus = (vehicle.vehicleStatus || "UNKNOWN").toUpperCase();
+							  const [run, park, idle] = (vehicle.timeIntervals || "0,0,0").split(",").map(n => +n || 0);
+
+							  const computedStatus = isLive
+							    ? rawStatus
+							    : computeStatus(rawStatus, run, park, idle, elapsed / 1000);
+
+							  const popupTime = new Date(effectiveTimestamp).toISOString().split(".")[0].replace("T", " ");
+
+							  const content = `
+							    <div class="vehicle-popup">
+							      <div class="popup-header">
+							        ${isLive
+							          ? `<span class="live-indicator"><span class="live-ripple"></span> LIVE</span>`
+							          : `<span class="last-received" style="color:#dc3545;">🔴 Last Received: ${popupTime}</span>`
+							        }
+							      </div>
+							      <div class="content" style="display:grid;grid-template-columns:auto 1fr;row-gap:6px;column-gap:10px;font-size:13px;">
+							        <div class="label"><i class="fas fa-car"></i> Vehicle No</div>
+							        <div class="value">${deviceId}</div>
+							        <div class="label"><i class="fas fa-map-pin"></i> Latitude</div>
+							        <div class="value">${lat.toFixed(5)}</div>
+							        <div class="label"><i class="fas fa-map-pin"></i> Longitude</div>
+							        <div class="value">${lng.toFixed(5)}</div>
+							        <div class="label"><i class="fas fa-rocket"></i> Speed</div>
+							        <div class="value">${speed} km/h</div>
+							        <div class="label"><i class="fas fa-tachometer-alt"></i> Status</div>
+							        <div class="value" style="color: ${computedStatus === 'RUNNING' ? 'green' : computedStatus === 'IDLE' || computedStatus === 'PARKED' ? 'orange' : 'red'};">
+							          ${computedStatus}
+							        </div>
+							        <div class="label"><i class="fas fa-signal"></i> GSM</div>
+							        <div class="value gsm-bar">
+							          <span class="gsm-icon ${gsmLevel.toLowerCase()}">${generateGSMBars(gsmStrength)}</span>
+							          <span class="gsm-strength-text" style="color:${gsmColor}">${gsmLevel} (${gsmStrength})</span>
+							        </div>
+							      </div>
+							      <div class="popup-actions">
+							        <button class="btn btn-details" onclick="showVehicleDetails('${deviceId}', event)">Details</button>
+							        <button class="btn btn-playback" onclick="navigateToReplay('${deviceId}')">Playback</button>
+							        <button class="btn btn-secondary" onclick="openLiveCamera()">Live Camera</button>
+							      </div>
+							    </div>
+							  `;
+
+							  if (this.markers[deviceId]) {
+							    const marker = this.markers[deviceId];
+							    marker.setLatLng(latlng);
+							    marker.setIcon(this.getVehicleIcon(vehicle.course, vehicle.ignition, computedStatus));
+							    marker.getPopup().setContent(content);
+							  } else {
+							    const marker = L.marker(latlng, {
+							      icon: this.getVehicleIcon(vehicle.course, vehicle.ignition, computedStatus)
+							    }).addTo(this.map);
+							    marker.bindPopup(content);
+							    this.markers[deviceId] = marker;
+							  }
+							}
+
+
+
+
+
+					// Helper function for speed color classes
+					getSpeedClass(speed) {
+					    if (speed < 2) return "speed-low";
+					    if (speed < 30) return "speed-medium";
+					    return "speed-high";
+					}
+
+					// Helper function for vehicle status classes
+					getStatusClass(status) {
+					    switch (status.toLowerCase()) {
+					        case "online": return "status-online";
+					        case "offline": return "status-offline";
+					        case "idle": return "status-idle";
+					        case "moving": return "status-moving";
+					        default: return "status-unknown";
+					    }
+					}
+
+
+
+
+					getVehicleIcon(course, ignition, vehicleStatus) {
+					    const basePath = '/THINTURE_IMAGE/car';
+					    let color = 'green'; // Default color
+
+					    // ✅ Change color based on vehicle status
+					    switch (vehicleStatus.toUpperCase()) {
+					        case 'PARKED': case 'IDLE': color = 'orange'; break;
+					        case 'RUNNING': color = 'green'; break;
+					        case 'OFFLINE': case 'CONNECTION LOST': color = 'red'; break;
+					    }
+
+					    console.log(`🚗 Vehicle Status: ${vehicleStatus}, Color Set To: ${color}`);
+
+					    const imagePath = `${basePath}/${color}/car0.png`;
+
+					    return L.divIcon({
+					        html: `<img src="${imagePath}" 
+					                    style="transform: rotate(${course}deg); width: 35px; height: 35px;">`,  // ✅ Instantly Rotates
+					        className: 'custom-icon',
+					        iconSize: [35, 35],
+					        iconAnchor: [17, 17],  // Center the icon
+					        popupAnchor: [0, -15]
+					    });
+					}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			zoomToVehicle(deviceId, latitude, longitude) {
+			  if (!this.map) {
+			    console.error("❌ Map not initialized.");
+			    return;
+			  }
+			  if (latitude == null || longitude == null) {
+			    console.error(`❌ Missing coordinates for device ${deviceId}`);
+			    return;
+			  }
+
+			  const maxZoom = this.map.getMaxZoom() || 20;
+			  this.map.setView([latitude, longitude], maxZoom);
+
+			  // 🔍 Temporarily hide other markers
+			  Object.entries(this.markers).forEach(([id, marker]) => {
+			    if (id !== deviceId && marker._icon) marker._icon.style.display = "none";
+			  });
+
+			  const marker = this.markers[deviceId];
+			  if (marker) {
+			    marker.openPopup();
+			    const icon = marker._icon;
+			    if (icon) {
+			      icon.classList.add("highlight-marker");
+			      setTimeout(() => {
+			        icon.classList.remove("highlight-marker");
+			        Object.values(this.markers).forEach(m => {
+			          if (m._icon) m._icon.style.display = "";
+			        });
+			      }, 8000);
+			    }
+			  }
+
+			  // 🔒 Close sidebar
+			  const sidebar = document.getElementById("sidebar");
+			  const toggleButton = document.getElementById("toggleButton");
+
+			  if (sidebar) sidebar.classList.remove("active");
+			  if (toggleButton) toggleButton.classList.remove("active");
+
+			  // ✅ Fix toggle visibility after sidebar is closed
+			  updateToggleVisibility();
+			}
+
+
+
+
+
+					
+
+
+
+				// ✅ ENHANCED: WebSocket with role-based filtering
+				initWebSocket() {
+				    // ✅ Disconnect old client before reconnecting
+				    if (this.stompClient && this.stompClient.connected) {
+				        this.stompClient.disconnect(() => {
+				            console.log("✅ Cleanly disconnected before reconnecting");
+				        });
+				    }
+
+				    setTimeout(() => {
+				        const socket = new SockJS('/ws');
+				        this.stompClient = Stomp.over(socket);
+
+				        // Disable debug logging
+				        this.stompClient.debug = null;
+
+				        // Heartbeats to keep connection alive
+				        this.stompClient.heartbeat.outgoing = 20000; // Send ping every 20 sec
+				        this.stompClient.heartbeat.incoming = 0;     // (Adjust if needed)
+
+				        this.stompClient.connect(
+				            {},
+				            // ✅ Success callback
+				            () => {
+				                console.log('✅ WebSocket connected');
+
+				                let topic;
+				                if (this.role && this.id) {
+				                    topic = `/topic/location-updates/${this.role}/${this.id}`;
+				                } else {
+				                    topic = '/topic/location-updates';
+				                }
+				                console.log(`🔗 Subscribing to: ${topic}`);
+
+				                this.stompClient.subscribe(topic, (message) => {
+				                    const data = JSON.parse(message.body);
+				                    this.handleWebSocketMessage(data);
+				                });
+				            },
+				            // ✅ Error callback
+				            (error) => {
+				                console.error('❌ WebSocket connection error:', error);
+
+				                // Clear old timestamps so nothing remains stale
+				                lastSocketUpdate.clear();
+
+				                setTimeout(() => this.initWebSocket(), 5000);
+				            }
+				        );
+				    }, 2000);
+				
+}
+
+handleWebSocketMessage(data) {
+  try {
+    if (!data) return;
+
+	const deviceId = (data.deviceId || data.deviceID || "").trim().toUpperCase(); // 🔁 handleWebSocketMessage
+
+    if (!deviceId) return;
+
+	const socketTime = Date.parse(data.timestamp);
+	lastSocketUpdate.set(deviceId, socketTime);
+	console.log("📦 WebSocket deviceId:", deviceId);
+	console.log("💾 Saved timestamp:", socketTime, new Date(socketTime).toISOString());
+
+    
+
+    this.createOrUpdateMarker(data);
+    updateSidebarRow(data, true);
+
+    const speed = parseFloat(data.speed) || 0;
+    const speedLimit = parseFloat(data.speedLimit) || 140;
+    if (speed > speedLimit) playSpeedAlert(deviceId, speed);
+  } catch (error) {
+    console.error("🚨 WebSocket message error:", error);
+  }
+}
+
+
+
+		}
+			
+
+		    document.addEventListener('DOMContentLoaded', () => {
+				window.vehicleTracker = new VehicleTracker('map');
+
+				  // Start initial data loading + auto-refresh
+				 
+
+				  // Toggle button setup
+				  document.getElementById("toggleButton").addEventListener("click", () => {});
+		  
+
+		    
+			    fetch('/api/vehicle/last/latests-locations/all')
+			        .then(res => res.json())
+			        .then(data => {
+			            if (data.length > 0) {
+			                window.updateSidebarTable(data);
+			            } else {
+			                document.getElementById("trackerTableBody").innerHTML = `
+			                    <tr>
+			                        <td colspan="4" class="text-center text-muted">No data</td>
+			                    </tr>
+			                `;
+			            }
+			        })
+			        .catch(err => {
+			            console.error('Failed to fetch vehicle data:', err);
+			        });
+			});
+			// ———————————————————————————————————————
+			// Helpers (only defined once)
+			function formatUtcTime(ts) {
+			  const d = new Date(ts);
+			  return d.toISOString().replace('T', ' ').substring(0,19);
+			}
+
+
+			
+
+
+
+			window.updateSidebarTable = function(vehicles) {
+			  const now = Date.now();
+			  const rows = vehicles.map(v => {
+			    const deviceId = (v.deviceId || v.deviceID || 'N/A').toUpperCase();
+			    if (!deviceId || deviceId === 'N/A' || deviceId.toLowerCase() === 'null') return '';
+
+			    const [run, park, idle] = (v.timeIntervals || '0,0,0').split(',').map(n => +n || 0);
+			    
+			    const recordTimestamp = v.timestamp ? new Date(v.timestamp).getTime() : 0;
+			    const socketTimestamp = lastSocketUpdate.get(deviceId);
+			    
+			    const effectiveTimestamp = socketTimestamp && socketTimestamp > recordTimestamp
+			      ? socketTimestamp
+			      : recordTimestamp;
+
+			    const elapsed = effectiveTimestamp ? (now - effectiveTimestamp) / 1000 : 0;
+			    const status = computeStatus(v.vehicleStatus, run, park, idle, elapsed);
+			    const timeIntervals = formatTimeIntervals(v.timeIntervals);  // ✅ Show with units
+
+			    const lastUpload = effectiveTimestamp
+			      ? new Date(effectiveTimestamp).toISOString().replace('T', ' ').split('.')[0]
+			      : 'N/A';
+
+			    const lat = parseFloat(v.latitude) || 0;
+			    const lng = parseFloat(v.longitude) || 0;
+
+			    return `
+			      <tr data-device="${deviceId}">
+			        <td>${status}</td>
+			        <td>${deviceId}</td>
+			        <td>${timeIntervals}</td>
+			        <td>${lastUpload}</td>
+			        <td><button onclick="zoomEffect(event,'${deviceId}',${lat},${lng})">Zoom</button></td>
+			      </tr>`;
+			  }).join('');
+
+			  document.getElementById('trackerTableBody').innerHTML = rows;
+			  paginateSidebarTable();
+			};
+
+
+
+
+			// ——————— GLOBAL HELPER ———————
+			const lastSocketUpdate = new Map();
+			function updateSidebarRow(v) {
+			  const deviceId = (v.deviceId || v.deviceID || "").trim().toUpperCase();
+			  if (!deviceId) return;
+
+			  const socketTimestamp = lastSocketUpdate.get(deviceId);
+			  const recordTimestamp = Date.parse(v.timestamp);
+
+			  const effectiveTimestamp = socketTimestamp && socketTimestamp > recordTimestamp
+			    ? socketTimestamp
+			    : recordTimestamp;
+
+			  const isLiveNow = socketTimestamp && (Date.now() - socketTimestamp <= 3000); // ✅ relaxed to 3 sec
+
+			  const elapsed = (Date.now() - effectiveTimestamp) / 1000;
+			  const rawStatus = (v.vehicleStatus || "UNKNOWN").toUpperCase();
+
+			  const [run, park, idle] = (v.timeIntervals || "0,0,0").split(",").map(n => +n || 0);
+
+			  const computedStatus = isLiveNow
+			    ? rawStatus
+			    : computeStatus(rawStatus, run, park, idle, elapsed);
+
+			  const tr = document.querySelector(`tr[data-device="${deviceId}"]`);
+			  if (!tr) return;
+
+			  // ✅ Status cell
+			  const statusCell = tr.cells[0];
+			  if (isLiveNow) {
+			    statusCell.innerHTML = `<span class="text-success fw-bold">${computedStatus}</span><span style="font-size:10px;color:green;"> • LIVE</span>`;
+			  } else if (computedStatus === "OFFLINE") {
+			    statusCell.innerHTML = `<span class="fw-bold text-danger">${computedStatus}</span>`;
+			  } else {
+			    statusCell.innerHTML = `<span class="text-dark">${computedStatus}</span>`;
+			  }
+
+			  // ✅ Intervals
+			  tr.cells[2].textContent = v.timeIntervals || "";
+
+			  // ✅ Last Upload: show raw WebSocket time if LIVE, else fallback
+			  // When storing socket timestamp for device:
+			  lastSocketUpdate.set(deviceId, Date.parse(data.timestamp));
+
+			  // When showing sidebar timestamp:
+			  tr.cells[3].textContent = data.timestamp;
+
+			}
+
+
+
+
+
+
+
+			
+
+			// ———————————————————————————————————————
+
+
+
+			function autoRefreshData() {
+			  fetch('/api/vehicle/last/latests-locations/all')
+			    .then(res => res.json())
+			    .then(data => {
+			      const now = Date.now();
+
+			      // Filter and process vehicles
+			      const validVehicles = data
+			        .filter(v => {
+			          const lat = parseFloat(v.latitude);
+			          const lng = parseFloat(v.longitude);
+			          return !isNaN(lat) && !isNaN(lng) &&
+			                 v.deviceId && v.deviceId.trim().toLowerCase() !== 'null';
+			        })
+			        .map(v => {
+			          const [run = 0, park = 0, idle = 0] = (v.timeIntervals || '0,0,0')
+			            .split(',').map(n => parseInt(n, 10) || 0);
+
+			          const elapsed = (now - Date.parse(v.timestamp )) / 1000;
+
+			          v.vehicleStatus = computeStatus(v.vehicleStatus, run, park, idle, elapsed, 0);
+			          return v;
+			        });
+
+			      // Update counts
+			      document.getElementById("totalCount").textContent   = validVehicles.length;
+			      document.getElementById("runningCount").textContent = validVehicles.filter(v => v.vehicleStatus === 'RUNNING').length;
+			      document.getElementById("idleCount").textContent    = validVehicles.filter(v => v.vehicleStatus === 'IDLE').length;
+			      document.getElementById("parkedCount").textContent  = validVehicles.filter(v => v.vehicleStatus === 'PARKED').length;
+			      document.getElementById("lostCount").textContent    = validVehicles.filter(v => v.vehicleStatus === 'OFFLINE').length;
+
+			      // Update the map and sidebar
+			      window.vehicleTracker.updateMapMarkers(validVehicles);
+			      window.updateSidebarTable(validVehicles);
+
+			      // Show offline devices alert
+			      const offlineList = validVehicles
+			        .filter(v => v.vehicleStatus === 'OFFLINE')
+			        .map(v => {
+			          const [run = 0, park = 0, idle = 0] = (v.timeIntervals || '0,0,0')
+			            .split(',').map(n => parseInt(n,10) || 0);
+			          return `• ${v.deviceId} — ${run}s, ${park}s, ${idle}s`;
+			        });
+
+			      if (offlineList.length) {
+			        Swal.fire({
+			          title: '🚨 Offline Devices',
+			          html: offlineList.join('<br>'),
+			          icon: 'error',
+			          confirmButtonText: 'OK'
+			        });
+			      }
+			    })
+			    .catch(err => console.error('🚨 Error fetching vehicle data:', err));
+			}
+
+
+		</script>
+
+		<script>
+			function navigateToReplay(deviceId) {
+				    if (!deviceId) {
+				        alert("Device ID is required to navigate to the replay page.");
+				        return;
+				    }
+					
+					window.location.href = `/superadmin/replay?deviceId=${encodeURIComponent(deviceId)}`;
+
+				}
+
+		</script>
+
+
+		<script>
+			
+
+
+
+			// ✅ Function to fetch and display vehicle details in a popup
+			async function showVehicleDetails(deviceID, event) {
+			    if (!deviceID) {
+			        console.error("❌ Device ID is missing!");
+			        alert("❌ No Device ID found!");
+			        return;
+			    }
+
+			    console.log("🚀 Fetching details for Device ID:", deviceID);
+
+			    try {
+			        const response = await fetch(`/api/details/${deviceID}`);
+			        if (!response.ok) {
+			            throw new Error("❌ Server returned error " + response.status);
+			        }
+
+			        const vehicle = await response.json();
+			        console.log("📡 Vehicle Details Received:", vehicle);
+
+			        if (!vehicle || Object.keys(vehicle).length === 0) {
+			            alert("❌ No data found for this vehicle!");
+			            return;
+			        }
+
+			        // Check if popup exists, create if not
+			        let detailsPopup = document.getElementById("vehicle-details-popup");
+			        if (!detailsPopup) {
+			            detailsPopup = document.createElement("div");
+			            detailsPopup.id = "vehicle-details-popup";
+			            document.body.appendChild(detailsPopup);
+			        }
+
+			        // Populate popup with vehicle details
+			        detailsPopup.innerHTML = `
+			            <div class="popup-header">
+			                <strong>Vehicle Details</strong>
+			                <span class="close-btn" onclick="closeVehiclePopup()">×</span>
+			            </div>
+			            <div class="popup-content">
+			               
+			                <strong>Vehicle Number:</strong> ${vehicle.deviceID || "N/A"} <br>
+							<strong>Owner:</strong> ${vehicle.ownerName || "N/A"} <br>
+							<strong>Total Distance:</strong> ${vehicle.totalDistance || "N/A"} km <br>
+			               
+			                <strong>Driver RFID:</strong> ${vehicle.driverRFID || "N/A"} <br>
+			                <strong>GSM Strength:</strong> ${vehicle.gsmStrength || "N/A"} <br>
+			                <strong>IMEI:</strong> ${vehicle.imei || "N/A"} <br>
+			                <strong>Vehicle Model:</strong> ${vehicle.model || "N/A"} <br>
+			            </div>
+			        `;
+
+			        // Show popup near clicked button
+			        detailsPopup.style.display = "block";
+			        const button = event.target;
+			        const rect = button.getBoundingClientRect();
+			        detailsPopup.style.top = `${rect.top + window.scrollY + 40}px`;
+			        detailsPopup.style.left = `${rect.left + window.scrollX}px`;
+
+			        // Add event listener to close when clicking outside
+			        setTimeout(() => {
+			            document.addEventListener("click", outsideClickListener);
+			        }, 100);
+
+			    } catch (error) {
+			        console.error("🚨 Error fetching vehicle details:", error);
+			        alert("⚠️ Error fetching data. Check console for details.");
+			    }
+			}
+
+			// Function to close the popup
+
+
+			// Click outside listener to close popup
+			function outsideClickListener(event) {
+			    let detailsPopup = document.getElementById("vehicle-details-popup");
+			    if (detailsPopup && !detailsPopup.contains(event.target)) {
+			        closeVehiclePopup();
+			        document.removeEventListener("click", outsideClickListener);
+			    }
+			}
+
+			// Function to close the popup
+			function closeVehiclePopup() {
+			    const popup = document.getElementById("vehicle-details-popup");
+			    if (popup) {
+			        popup.style.display = "none";
+			        document.removeEventListener("click", outsideClickListener); // Remove event listener
+			    }
+			}
+
+			// Function to detect outside click
+			function outsideClickListener(event) {
+			    const popup = document.getElementById("vehicle-details-popup");
+			    if (popup && event.target !== popup && !popup.contains(event.target)) {
+			        closeVehiclePopup();
+			    }
+			}
+
+
+			
+			document.getElementById("searchBar").addEventListener("input", function() {
+			    const searchValue = this.value.toLowerCase();
+			    const rows = document.querySelectorAll("#trackerTableBody tr");
+
+			    rows.forEach(row => {
+			        const deviceId = row.cells[1]?.textContent.toLowerCase() || ""; // Assuming device ID is in the 2nd column (index 1)
+			        if (deviceId.includes(searchValue)) {
+			            row.style.display = "";
+			        } else {
+			            row.style.display = "none";
+			        }
+			    });
+			});
+			// Speed alert popup logic
+			function playSpeedAlert(deviceId, speed) {
+			    showSpeedAlert(deviceId, speed);
+
+			    const audio = document.getElementById("overspeedAudio");
+			    if (audio) {
+			        audio.currentTime = 0;
+			        audio.play().catch(err => {
+			            console.warn("⚠️ Audio play failed:", err);
+			        });
+			    }
+			}
+
+
+			   function showSpeedAlert(deviceId, speed) {
+			       document.getElementById("alertDeviceID").textContent = deviceId;
+			       document.getElementById("alertSpeed").textContent = speed;
+
+			       const popup = document.getElementById("speedAlertPopup");
+			       popup.style.display = "block";
+
+			       // ⏱️ Auto-close after 5 seconds
+			       setTimeout(() => {
+			           popup.style.display = "none";
+			       }, 3000);
+			   }
+
+
+			   function closeSpeedAlert() {
+			     document.getElementById("speedAlertPopup").style.display = "none";
+			   }
+
+			  
+			
+			
+			   function autoRefreshSidebar() {
+				fetch('/api/vehicle/last/latests-locations/all')
+				  .then(res => res.json())
+				  .then(data => {
+				      if (Array.isArray(data) && data.length > 0) {
+				          window.updateSidebarTable(data);
+				      } else {
+				          document.getElementById("trackerTableBody").innerHTML = `
+				              <tr><td colspan="4" class="text-center text-muted">No devices found</td></tr>
+				          `;
+				      }
+				  });
+
+
+
+			}
+			
+			
+			
+			
+			
+			
+			
+		</script>
+		<script>
+			document.addEventListener("DOMContentLoaded", function () {
+			    let currentLayer;
+			    let mapLayers = {
+			        "osm": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			            attribution: '&copy; OpenStreetMap contributors'
+			        }),
+			        "googleSatellite": L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+			            attribution: '&copy; Google Satellite'
+			        }),
+			        "googleRoadMap": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+			            attribution: '&copy; Google '
+			        }),
+			        "googleHybrid": L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+			            attribution: '&copy; Google Hybrid'
+			        })
+			    };
+
+				function switchLiveMap(mapType) {
+				    const nextLayer = mapLayers[mapType];
+
+				    if (!nextLayer || typeof nextLayer.addTo !== "function") {
+				        console.error("❌ Invalid map layer:", mapType, nextLayer);
+				        return;
+				    }
+
+				    if (currentLayer && typeof currentLayer.remove === "function") {
+				        window.vehicleTracker.map.removeLayer(currentLayer);
+				    }
+
+				    currentLayer = nextLayer;
+				    currentLayer.addTo(window.vehicleTracker.map);
+
+				    // Update button UI
+				    document.querySelectorAll(".map-button").forEach(btn => btn.classList.remove("active"));
+				    document.querySelector(`.map-button[data-map="${mapType}"]`).classList.add("active");
+				}
+
+
+			    // Initialize map with OSM by default
+			    currentLayer = mapLayers["osm"];
+			    currentLayer.addTo(window.vehicleTracker.map);
+
+			    // Assign switching function globally
+			    window.switchLiveMap = switchLiveMap;
+			});
+
+			
+			
+
+			function closeSidebar() {
+			    const sidebar = document.getElementById("sidebar");
+			    const toggleButton = document.getElementById("toggleButton");
+			    const mobileCloseBtn = document.getElementById("mobileCloseBtn");
+
+			    sidebar.classList.remove("active");
+			    toggleButton.classList.remove("active");
+
+			    if (window.innerWidth <= 768) {
+			        toggleButton.style.display = "block";  // ✅ Show toggle again
+			        mobileCloseBtn.style.display = "none"; // ✅ Hide close button
+			    }
+			}
+
+
+
+			// ✅ Fetch Vehicle Details & Show Popup
+			function fetchVehicleDetails(deviceID) {
+			    if (!deviceID) {
+			        console.error("❌ Device ID is missing!");
+			        alert("❌ No Device ID found!");
+			        return;
+			    }
+
+			    console.log("🚀 Fetching details for Device ID:", deviceID);
+
+			    fetch(`/api/details/${deviceID}`)
+			        .then(response => {
+			            console.log("📡 Response Status:", response.status);
+			            if (!response.ok) {
+			                throw new Error("❌ Server returned error " + response.status);
+			            }
+			            return response.json();
+			        })
+			        .then(vehicle => {
+			            console.log("📡 Vehicle Details Received:", vehicle);
+
+			            if (!vehicle || Object.keys(vehicle).length === 0) {
+			                alert("❌ No data found for this vehicle!");
+			                return;
+			            }
+
+			            // ✅ Populate Popup Data
+			            document.getElementById("popup-deviceID").textContent = vehicle.deviceID || "N/A";
+						document.getElementById("popup-serialno").textContent = vehicle.serialNo || "N/A";
+			            document.getElementById("popup-ownerName").textContent = vehicle.ownerName || "N/A";
+			            document.getElementById("popup-model").textContent = vehicle.model || "N/A";
+						document.getElementById("popup-simnumber").textContent = vehicle.simNumber || "N/A";
+						  document.getElementById("popup-timeinterval").innerText = vehicle.timeIntervals || "N/A";
+
+			            
+			           
+			            // ✅ Show Popup
+			            document.getElementById("popupOverlay").style.display = "block";
+			            document.getElementById("vehicleDetailsModal").classList.add("show");
+			            console.log("✅ Popup Opened!");
+			        })
+			        .catch(error => {
+			            console.error("🚨 Error fetching vehicle details:", error);
+			            alert("⚠️ Error fetching data. Check console for details.");
+			        });
+			}
+
+			// ✅ Function to Close Popup
+			function closePopup() {
+			    const overlay = document.getElementById("popupOverlay");
+			    const modal = document.getElementById("vehicleDetailsModal");
+			    
+			    if (overlay) overlay.style.display = "none";
+			    if (modal) modal.classList.remove("show");
+			}
+
+			document.addEventListener("DOMContentLoaded", function () {
+			    const toggleButton = document.getElementById("toggleButton");
+			    const statusSummary = document.querySelector(".status-summary");
+
+			    if (!toggleButton || !statusSummary) return;
+
+			    // Initially hide the status summary
+			    statusSummary.style.display = "none";
+
+			    toggleButton.addEventListener("click", function () {
+			        // Toggle visibility of status summary
+			        statusSummary.style.display = 
+			            statusSummary.style.display === "none" ? "flex" : "none";
+			    });
+			});
+
+			let currentPage = 1;
+			const itemsPerPage = 10;
+
+			async function fetchDevicesByStatus(status, page = 1) {
+			    const deviceList = document.getElementById("deviceList");
+			    const title = document.getElementById("statusTitle");
+			    const paginationControls = document.getElementById("paginationControls");
+
+			    title.textContent = `${status.toUpperCase()} Devices`;
+			    deviceList.innerHTML = "<li>Loading...</li>";
+
+			    try {
+			        const response = await fetch("/api/vehicle/last/latests-locations/all");
+			        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+
+			        const devices = await response.json();
+			        if (!Array.isArray(devices)) throw new Error("Invalid API response format.");
+
+			        const now = Date.now();
+			        const processedDevices = devices.map(device => {
+			            const statusRaw = (device.vehicleStatus || "").toUpperCase();
+			            const timestamp = new Date(device.timestamp).getTime();
+			            const elapsedSec = (now - timestamp) / 1000;
+			            const [run, park, idle] = (device.timeIntervals || "0,0,0").split(',').map(x => +x || 0);
+
+			            let isOffline = false;
+			            if ((statusRaw === "RUNNING" || statusRaw === "MOVING") && run > 0) {
+			                isOffline = elapsedSec > run;
+			            } else if (statusRaw === "PARKED" && park > 0) {
+			                isOffline = elapsedSec > park * 60;
+			            } else if (statusRaw === "IDLE" && idle > 0) {
+			                isOffline = elapsedSec > idle;
+			            } else {
+			                isOffline = true;
+			            }
+
+			            return {
+			                ...device,
+			                computedStatus: isOffline ? "OFFLINE" : statusRaw
+			            };
+			        });
+
+			        // Filter by status
+			        let filteredDevices = [];
+			        switch (status.toLowerCase()) {
+			            case "running":
+			                filteredDevices = processedDevices.filter(d => d.computedStatus === "RUNNING");
+			                break;
+			            case "idle":
+			                filteredDevices = processedDevices.filter(d => d.computedStatus === "IDLE");
+			                break;
+			            case "parked":
+			                filteredDevices = processedDevices.filter(d => d.computedStatus === "PARKED");
+			                break;
+			            case "lost":
+			            case "offline":
+			                filteredDevices = processedDevices.filter(d => d.computedStatus === "OFFLINE");
+			                break;
+			            case "total":
+			                filteredDevices = processedDevices;
+			                break;
+			        }
+
+			        // Paginate
+			        const totalPages = Math.max(1, Math.ceil(filteredDevices.length / itemsPerPage));
+			        currentPage = Math.max(1, Math.min(page, totalPages));
+			        const startIdx = (currentPage - 1) * itemsPerPage;
+			        const pageDevices = filteredDevices.slice(startIdx, startIdx + itemsPerPage);
+
+			        // Render
+			        deviceList.innerHTML = "";
+			        if (pageDevices.length === 0) {
+			            deviceList.innerHTML = "<li>No devices available</li>";
+			        } else {
+			            pageDevices.forEach(device => {
+			                const li = document.createElement("li");
+			                li.innerHTML = `<strong>${device.deviceId}</strong> — <span>${device.computedStatus}</span>`;
+			                deviceList.appendChild(li);
+			            });
+			        }
+
+			        // Pagination buttons
+			        paginationControls.innerHTML = `
+			            <button onclick="fetchDevicesByStatus('${status}', ${currentPage - 1})" ${currentPage === 1 ? "disabled" : ""}>⬅ Prev</button>
+			            <span>Page ${currentPage} of ${totalPages}</span>
+			            <button onclick="fetchDevicesByStatus('${status}', ${currentPage + 1})" ${currentPage === totalPages ? "disabled" : ""}>Next ➡</button>
+			        `;
+			    } catch (error) {
+			        console.error("🔴 Error fetching status-based devices:", error);
+			        deviceList.innerHTML = `<li>Error: ${error.message}</li>`;
+			    }
+			}
+
+			
+
+			
+			
+			// Function to show speed alert popup
+			
+
+			// Function to close the alert manually
+			
+			// Function to determine speed class based on speed range
+			
+			
+			
+			
+			
+
+			
+		</script>
+
+		<script>
+			
+			function zoomEffect(event, deviceId, latitude, longitude) {
+			    const lat = parseFloat(latitude);
+			    const lng = parseFloat(longitude);
+
+			    if (isNaN(lat) || isNaN(lng)) {
+			        console.error(`❌ Invalid coordinates for ${deviceId}: ${lat}, ${lng}`);
+			        return;
+			    }
+
+			    console.log(`📍 Zooming to ${deviceId} at (${lat}, ${lng})`);
+			    window.vehicleTracker.zoomToVehicle(deviceId, lat, lng);
+			}
+			
+			
+			document.getElementById("searchBar").addEventListener("input", function () {
+			    const searchValue = this.value.toLowerCase();
+			    const rows = document.querySelectorAll("#trackerTableBody tr");
+
+			    rows.forEach(row => {
+			        const deviceId = row.cells[1]?.textContent.toLowerCase() || ""; // ✅ 2nd column = Device ID
+			        row.style.display = deviceId.includes(searchValue) ? "" : "none";
+			    });
+			});
+
+
+		</script>
+		<script>
+			let currentSidebarPage = 1;
+			const sidebarRowsPerPage = 10;
+
+			function paginateSidebarTable() {
+			    const allRows = document.querySelectorAll("#trackerTableBody tr");
+			    const totalRows = allRows.length;
+			    const totalPages = Math.ceil(totalRows / sidebarRowsPerPage);
+
+			    // Hide all rows
+			    allRows.forEach(row => (row.style.display = "none"));
+
+			    // Show current page rows
+			    const start = (currentSidebarPage - 1) * sidebarRowsPerPage;
+			    const end = start + sidebarRowsPerPage;
+			    for (let i = start; i < end && i < totalRows; i++) {
+			        allRows[i].style.display = "";
+			    }
+
+			    // Create simple controls
+			    const paginationContainer = document.getElementById("sidebarPagination");
+			    paginationContainer.innerHTML = `
+			        <button onclick="goSidebarPage(-1)" ${currentSidebarPage === 1 ? "disabled" : ""}>⬅</button>
+			        <span>Page ${currentSidebarPage} of ${totalPages}</span>
+			        <button onclick="goSidebarPage(1)" ${currentSidebarPage === totalPages ? "disabled" : ""}>➡</button>
+			    `;
+			}
+
+			function goSidebarPage(direction) {
+			    const allRows = document.querySelectorAll("#trackerTableBody tr");
+			    const totalPages = Math.ceil(allRows.length / sidebarRowsPerPage);
+			    currentSidebarPage = Math.max(1, Math.min(currentSidebarPage + direction, totalPages));
+			    paginateSidebarTable();
+			}
+
+			function refreshSidebarTableWithPagination(data) {
+			    window.vehicleTracker.updateSidebarTable(data);
+			    currentSidebarPage = 1;
+			    paginateSidebarTable();
+			}
+			
+
+
+		</script>
+		
+
+
+		<script>
+		let isMuted = false;
+
+		document.getElementById("muteToggleBtn").addEventListener("click", () => {
+		    isMuted = !isMuted;
+		    const btn = document.getElementById("muteToggleBtn");
+		    btn.textContent = isMuted ? "🔈 Unmute" : "🔇 Mute";
+		});
+
+		function playAlertSound() {
+		    if (isMuted) return;
+
+		    const audio = document.getElementById("overspeedAudio");
+		    if (audio) {
+		        audio.currentTime = 0;
+		        audio.play().catch(err => console.warn("🔇 Alert sound failed:", err));
+		    }
+		}
+		</script>
+
+		<script>
+		    function showSidebarTab(tabId, btn) {
+		        document.querySelectorAll('.custom-tab-content').forEach(div => div.classList.remove('active'));
+		        document.querySelectorAll('.custom-tab-btn').forEach(b => b.classList.remove('active'));
+
+		        document.getElementById(tabId).classList.add('active');
+		        btn.classList.add('active');
+		    }
+			
+			
+
+
+			
+			function generateGSMBars(strength) {
+			    const level = strength <= 30 ? 1 : strength <= 70 ? 2 : 3;
+			    let bars = "";
+
+			    for (let i = 1; i <= 3; i++) {
+			        bars += `<span class="bar ${i <= level ? 'filled' : ''}"></span>`;
+			    }
+			    return bars;
+			}
+
+		</script>
+		<script>
+		document.addEventListener("DOMContentLoaded", function () {
+		    const sidebar = document.getElementById("sidebar");
+		    const toggleButton = document.getElementById("toggleButton");
+		    const mobileCloseBtn = document.getElementById("mobileCloseBtn");
+
+		    // ✅ Global visibility manager
+		    window.updateToggleVisibility = function () {
+		        const isSidebarOpen = sidebar.classList.contains("active");
+		        const isMobile = window.innerWidth <= 768;
+
+		        if (isMobile) {
+		            toggleButton.style.display = isSidebarOpen ? "none" : "block";
+		            mobileCloseBtn.style.display = isSidebarOpen ? "block" : "none";
+		        } else {
+		            toggleButton.style.display = "block";
+		            mobileCloseBtn.style.display = "none";
+		        }
+		    };
+
+		    toggleButton.addEventListener("click", function () {
+		        sidebar.classList.toggle("active");
+		        toggleButton.classList.toggle("active");
+		        updateToggleVisibility();
+		    });
+
+		    // ✅ Global sidebar close handler
+		    window.closeSidebar = function () {
+		        sidebar.classList.remove("active");
+		        toggleButton.classList.remove("active");
+		        updateToggleVisibility();
+		    };		
+
+
+		    window.addEventListener("resize", updateToggleVisibility);
+
+		    // Initial run
+		    updateToggleVisibility();
+		});
+
+		function formatTimeIntervals(intervalStr) {
+		  if (!intervalStr || typeof intervalStr !== 'string') return 'N/A';
+		  const [run, parkMin, idle] = intervalStr.split(',').map(val => parseInt(val, 10) || 0);
+
+		  function fmt(sec) {
+		    const h = Math.floor(sec / 3600),
+		          m = Math.floor((sec % 3600) / 60),
+		          s = sec % 60;
+		    if (h) return `${h}h ${m}m ${s}s`;
+		    if (m) return `${m}m ${s}s`;
+		    return `${s}s`;
+		  }
+
+		  return `Run ${fmt(run)}, Park ${fmt(parkMin * 60)}, Idle ${fmt(idle)}`;
+		}
+
+
+
+		// ✅ Keep track of which devices we've already alerted for offline
+
+
+		/**
+		 * Helper: Format UTC timestamp nicely
+		 */
+		 setInterval(() => {
+		   const now = Date.now();
+
+		   Object.entries(window.vehicleTracker.markers).forEach(([deviceId, marker]) => {
+		     const lastUpdate = lastSocketUpdate.get(deviceId);
+		     if (!lastUpdate) return;
+
+		     const elapsed = (now - lastUpdate) / 1000;
+
+		     if (elapsed > 1 && marker.isPopupOpen()) {  // ⬅️ 1 second hold
+		       fetch('/api/vehicle/last/latests-locations/all')
+		         .then(res => res.json())
+		         .then(data => {
+		           const vehicle = data.find(v =>
+		             (v.deviceId || v.deviceID || "").toUpperCase() === deviceId
+		           );
+		           if (vehicle) {
+		             window.vehicleTracker.createOrUpdateMarker(vehicle);
+					 updateSidebarRow(vehicle); 
+		           }
+		         });
+		     }
+		   });
+		 }, 1000);  // Every 1 sec
+
+
+		 function computeStatus(statusRaw, run, park, idle, elapsed) {
+		   const status = (statusRaw || '').toUpperCase();
+
+		   if (status === 'RUNNING' && run > 0)
+		     return elapsed > run ? 'OFFLINE' : 'RUNNING';
+
+		   if (status === 'IDLE' && idle > 0)
+		     return elapsed > idle ? 'OFFLINE' : 'IDLE';
+
+		   if (status === 'PARKED' && park > 0)
+		     return elapsed > (park * 60) ? 'OFFLINE' : 'PARKED';
+
+		   return 'OFFLINE';
+		 }
+
+
+
+		
+		
+		   
+		   // Monkey-patch addEventListener to default to passive for scroll events
+		   (function() {
+		     const origAddEventListener = EventTarget.prototype.addEventListener;
+		     EventTarget.prototype.addEventListener = function(type, listener, options) {
+		       if (
+		         ['scroll', 'touchstart', 'touchmove', 'wheel'].includes(type) &&
+		         (options === undefined || options === false)
+		       ) {
+		         options = { passive: true };
+		       }
+		       origAddEventListener.call(this, type, listener, options);
+		     };
+		   })();
+
+		   
+		   
+		   
+		   
+		   
+		</script>
+		
+
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+		</body>
+		</html>

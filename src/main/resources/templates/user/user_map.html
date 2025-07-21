@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ GPS Live Map - Enhanced</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .role-admin { background: #e74c3c; }
+        .role-dealer { background: #3498db; }
+        .role-client { background: #2ecc71; }
+        .role-user { background: #f39c12; }
+
+        .status {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .connected { 
+            background: rgba(46, 204, 113, 0.2); 
+            color: #27ae60;
+            border: 1px solid #2ecc71;
+        }
+        
+        .disconnected { 
+            background: rgba(231, 76, 60, 0.2); 
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .pulse.green { background: #2ecc71; }
+        .pulse.red { background: #e74c3c; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 1; }
+            70% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+
+        /* Map */
+        #map {
+            width: 100%;
+            height: calc(100vh - 76px);
+        }
+
+        /* Vehicle Info Popup */
+        .vehicle-popup {
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .popup-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .popup-info {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .popup-info div {
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .popup-info strong {
+            color: #34495e;
+            min-width: 80px;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .status-running { background: #d4edda; color: #155724; }
+        .status-stopped { background: #f8d7da; color: #721c24; }
+        .status-offline { background: #e2e3e5; color: #6c757d; }
+
+        /* Loading Spinner */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Vehicle Counter */
+        .vehicle-counter {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <div>Connecting to GPS Server...</div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="title">
+            🗺️ GPS Live Map
+        </div>
+        <div class="user-info">
+            <span>User: <strong id="username">Loading...</strong></span>
+            <span class="role-badge" id="roleBadge">Loading...</span>
+            <span class="vehicle-counter">Vehicles: <span id="vehicleCount">0</span></span>
+            <span id="connectionStatus" class="status disconnected">
+                <div class="pulse red"></div>
+                Disconnected
+            </span>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script>
+        // 🔧 Enhanced Configuration - Fixed to match your backend
+        const CONFIG = {
+            // 🔗 Updated URLs to match your WebSocketConfig.java
+            WEBSOCKET_URL: 'http://localhost:8080/ws-gps',  // Fixed: matches your /ws-gps endpoint
+            API_BASE_URL: 'http://localhost:8080/api',
+            
+            // 👤 User Configuration (in real app, get from login/session)
+            USER: {
+                id: '1',              // Your user ID
+                username: 'dealer1',   // Your username  
+                role: 'DEALER'        // ADMIN, DEALER, CLIENT, USER
+            },
+
+            // 🗺️ Map Settings
+            MAP: {
+                center: [13.0827, 80.2707], // Chennai, India - Change to your location
+                zoom: 12,
+                maxZoom: 18
+            },
+
+            // ⚙️ WebSocket Settings
+            WEBSOCKET: {
+                reconnectInterval: 5000,
+                heartbeatInterval: 30000,
+                maxReconnectAttempts: 10
+            }
+        };
+
+        // 🗺️ Map and Markers
+        let map;
+        const vehicleMarkers = new Map();
+        let vehicleCount = 0;
+
+        // 🔌 WebSocket
+        let stompClient = null;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        let heartbeatInterval;
+
+        // 🚀 Initialize Application
+        function init() {
+            showLoading(true);
+            initializeMap();
+            updateUserInfo();
+            connectWebSocket();
+            startHeartbeat();
+        }
+
+        // 🗺️ Initialize Map
+        function initializeMap() {
+            map = L.map('map').setView(CONFIG.MAP.center, CONFIG.MAP.zoom);
+
+            // Add enhanced map tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: CONFIG.MAP.maxZoom
+            }).addTo(map);
+
+            console.log('🗺️ Map initialized');
+        }
+
+        // 👤 Update User Info Display
+        function updateUserInfo() {
+            document.getElementById('username').textContent = CONFIG.USER.username;
+            
+            const roleBadge = document.getElementById('roleBadge');
+            roleBadge.textContent = CONFIG.USER.role;
+            roleBadge.className = `role-badge role-${CONFIG.USER.role.toLowerCase()}`;
+        }
+
+        // 🔌 Enhanced WebSocket Connection - Fixed to match your backend
+        function connectWebSocket() {
+            if (isConnected) return;
+
+            console.log('🔌 Connecting to WebSocket...', CONFIG.WEBSOCKET_URL);
+            
+            try {
+                const socket = new SockJS(CONFIG.WEBSOCKET_URL);
+                stompClient = Stomp.over(socket);
+                
+                // Disable debug logging in production
+                stompClient.debug = (msg) => console.debug('STOMP:', msg);
+                
+                // Enhanced connection headers matching your WebSocketConfig requirements
+                const headers = {
+                    'X-Session-Id': 'session-' + Date.now(),          // Session ID
+                    'X-User-Id': CONFIG.USER.id,                      // User ID  
+                    'X-User-Role': CONFIG.USER.role,                  // User Role
+                    'X-Device-Id': 'web-client-' + Date.now(),        // Device ID
+                    'X-Auth-Token': 'demo-token-' + CONFIG.USER.id,   // Auth Token (replace with real token)
+                    'clientType': 'WEB_MAP',
+                    'timestamp': Date.now().toString()
+                };
+
+                console.log('🔐 Connecting with headers:', headers);
+                stompClient.connect(headers, onConnected, onError);
+                
+            } catch (error) {
+                console.error('❌ WebSocket connection error:', error);
+                onError(error);
+            }
+        }
+
+        // ✅ WebSocket Connected - Enhanced logging to match backend
+        function onConnected() {
+            console.log('✅ GPS WebSocket Connected Successfully');
+            isConnected = true;
+            reconnectAttempts = 0;
+            updateConnectionStatus(true);
+            showLoading(false);
+            
+            console.log('🔐 GPS WebSocket connection established:', {
+                userId: CONFIG.USER.id,
+                role: CONFIG.USER.role,
+                endpoint: CONFIG.WEBSOCKET_URL
+            });
+            
+            // Subscribe to location updates
+            subscribeToLocationUpdates();
+            
+            // Request initial vehicle locations
+            setTimeout(() => requestInitialLocations(), 1000);
+        }
+
+        // ❌ Enhanced WebSocket Error Handling - Matches backend logging
+        function onError(error) {
+            console.error('❌ GPS WebSocket Error:', error);
+            console.error('🔌 Connection details:', {
+                url: CONFIG.WEBSOCKET_URL,
+                userId: CONFIG.USER.id,
+                role: CONFIG.USER.role,
+                attempt: reconnectAttempts + 1
+            });
+            
+            isConnected = false;
+            updateConnectionStatus(false);
+            showLoading(false);
+            
+            // Attempt reconnection with backoff
+            if (reconnectAttempts < CONFIG.WEBSOCKET.maxReconnectAttempts) {
+                reconnectAttempts++;
+                const delay = CONFIG.WEBSOCKET.reconnectInterval * reconnectAttempts;
+                
+                console.log(`🔄 Reconnecting in ${delay/1000}s... (Attempt ${reconnectAttempts}/${CONFIG.WEBSOCKET.maxReconnectAttempts})`);
+                setTimeout(connectWebSocket, delay);
+            } else {
+                console.error('❌ Max reconnection attempts reached. Please refresh the page.');
+            }
+        }
+
+        // 📡 Enhanced Topic Subscription
+        function subscribeToLocationUpdates() {
+            // Subscribe based on your backend topic structure
+            const topics = getSubscriptionTopics();
+            
+            topics.forEach(topic => {
+                console.log('📡 Subscribing to:', topic);
+                
+                stompClient.subscribe(topic, (message) => {
+                    try {
+                        const locationData = JSON.parse(message.body);
+                        console.log('📍 Received location update:', locationData);
+                        
+                        handleLocationUpdate(locationData);
+                        
+                    } catch (error) {
+                        console.error('❌ Error processing location update:', error);
+                    }
+                });
+            });
+        }
+
+        // 🎯 Get Subscription Topics Based on Role
+        function getSubscriptionTopics() {
+            const topics = [];
+            
+            // Main role-based topic (matches your backend)
+            switch (CONFIG.USER.role) {
+                case 'ADMIN':
+                    topics.push(`/topic/location-updates/admin/${CONFIG.USER.id}`);
+                    break;
+                case 'DEALER':
+                    topics.push(`/topic/location-updates/dealer/${CONFIG.USER.id}`);
+                    break;
+                case 'CLIENT':
+                    topics.push(`/topic/location-updates/client/${CONFIG.USER.id}`);
+                    break;
+                case 'USER':
+                    topics.push(`/topic/location-updates/user/${CONFIG.USER.id}`);
+                    break;
+            }
+
+            // Subscribe to alerts for this user
+            topics.push('/topic/alerts');
+            
+            return topics;
+        }
+
+        // 📍 Handle Location Updates
+        function handleLocationUpdate(locationData) {
+            // Handle both single location and array of locations
+            if (Array.isArray(locationData)) {
+                locationData.forEach(location => updateVehicleOnMap(location));
+            } else {
+                updateVehicleOnMap(locationData);
+            }
+        }
+
+        // 🚗 Enhanced Vehicle Map Update
+        function updateVehicleOnMap(locationData) {
+            const deviceId = locationData.deviceId || locationData.deviceID;
+            
+            if (!deviceId) {
+                console.error('❌ Missing device ID:', locationData);
+                return;
+            }
+
+            const lat = parseFloat(locationData.latitude);
+            const lng = parseFloat(locationData.longitude);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                console.error('❌ Invalid coordinates for device:', deviceId, locationData);
+                return;
+            }
+
+            // Create custom marker icon based on vehicle status
+            const icon = createVehicleIcon(locationData);
+
+            if (vehicleMarkers.has(deviceId)) {
+                // Update existing marker
+                const marker = vehicleMarkers.get(deviceId);
+                marker.setLatLng([lat, lng]);
+                marker.setIcon(icon);
+                marker.getPopup().setContent(createEnhancedPopupContent(locationData));
+                
+                // Smooth animation to new position
+                marker.setLatLng([lat, lng]);
+                
+            } else {
+                // Create new marker
+                const marker = L.marker([lat, lng], { icon: icon })
+                    .addTo(map)
+                    .bindPopup(createEnhancedPopupContent(locationData));
+                
+                vehicleMarkers.set(deviceId, marker);
+                vehicleCount++;
+                updateVehicleCounter();
+                
+                // Auto-fit map if it's the first vehicle
+                if (vehicleCount === 1) {
+                    map.setView([lat, lng], 15);
+                }
+            }
+
+            console.log(`📍 Updated vehicle ${deviceId} at [${lat}, ${lng}]`);
+        }
+
+        // 🎨 Create Custom Vehicle Icon
+        function createVehicleIcon(locationData) {
+            const ignition = locationData.ignition || 'OFF';
+            const speed = parseFloat(locationData.speed || '0');
+            
+            let color = '#95a5a6'; // Default gray
+            
+            if (ignition.toUpperCase() === 'ON') {
+                color = speed > 0 ? '#2ecc71' : '#f39c12'; // Green if moving, orange if stationary
+            } else {
+                color = '#e74c3c'; // Red if ignition off
+            }
+
+            return L.divIcon({
+                className: 'custom-vehicle-marker',
+                html: `
+                    <div style="
+                        background: ${color};
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-size: 10px;
+                        font-weight: bold;
+                    ">
+                        🚗
+                    </div>
+                `,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+            });
+        }
+
+        // 🎈 Enhanced Popup Content
+        function createEnhancedPopupContent(locationData) {
+            const deviceId = locationData.deviceId || locationData.deviceID;
+            const speed = locationData.speed || '0';
+            const ignition = locationData.ignition || 'Unknown';
+            const timestamp = locationData.timestamp || 'Unknown';
+            const vehicleStatus = locationData.vehicleStatus || 'Unknown';
+            const course = locationData.course || 'N/A';
+            const gsmStrength = locationData.gsmStrength || 'N/A';
+            
+            // Get coordinates from locationData
+            const lat = parseFloat(locationData.latitude);
+            const lng = parseFloat(locationData.longitude);
+
+            // Format timestamp
+            const formattedTime = formatTimestamp(timestamp);
+            
+            // Determine status badge
+            const statusClass = vehicleStatus.toLowerCase().includes('running') ? 'status-running' : 
+                               vehicleStatus.toLowerCase().includes('stopped') ? 'status-stopped' : 'status-offline';
+
+            return `
+                <div class="vehicle-popup">
+                    <div class="popup-header">🚗 ${deviceId}</div>
+                    <div class="popup-info">
+                        <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${vehicleStatus}</span></div>
+                        <div><strong>Speed:</strong> <span>${speed} km/h</span></div>
+                        <div><strong>Ignition:</strong> <span>${ignition}</span></div>
+                        <div><strong>Direction:</strong> <span>${course}°</span></div>
+                        <div><strong>Signal:</strong> <span>${gsmStrength}</span></div>
+                        <div><strong>Location:</strong> <span>${lat.toFixed(6)}, ${lng.toFixed(6)}</span></div>
+                        <div><strong>Updated:</strong> <span>${formattedTime}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 📍 Request Initial Locations
+        function requestInitialLocations() {
+            if (!stompClient || !isConnected) return;
+
+            const destination = getRequestDestination();
+            if (!destination) return;
+
+            console.log('📡 Requesting initial locations from:', destination);
+            
+            try {
+                stompClient.send(destination, {}, JSON.stringify({ 
+                    action: 'getLocations',
+                    userId: CONFIG.USER.id,
+                    userRole: CONFIG.USER.role,
+                    timestamp: Date.now()
+                }));
+            } catch (error) {
+                console.error('❌ Error requesting locations:', error);
+            }
+        }
+
+        // 🎯 Get Request Destination
+        function getRequestDestination() {
+            switch (CONFIG.USER.role) {
+                case 'ADMIN':
+                    return `/app/locations/admin/${CONFIG.USER.id}`;
+                case 'DEALER':
+                    return `/app/locations/dealer/${CONFIG.USER.id}`;
+                case 'CLIENT':
+                    return `/app/locations/client/${CONFIG.USER.id}`;
+                case 'USER':
+                    return `/app/locations/user/${CONFIG.USER.id}`;
+                default:
+                    console.error('❌ Unknown user role:', CONFIG.USER.role);
+                    return null;
+            }
+        }
+
+        // 🔄 Update Connection Status
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                statusElement.innerHTML = '<div class="pulse green"></div> Connected';
+                statusElement.className = 'status connected';
+            } else {
+                statusElement.innerHTML = '<div class="pulse red"></div> Disconnected';
+                statusElement.className = 'status disconnected';
+            }
+        }
+
+        // 📊 Update Vehicle Counter
+        function updateVehicleCounter() {
+            document.getElementById('vehicleCount').textContent = vehicleCount;
+        }
+
+        // ⏰ Enhanced Heartbeat - Matches your backend heartbeat configuration
+        function startHeartbeat() {
+            heartbeatInterval = setInterval(() => {
+                if (stompClient && isConnected) {
+                    try {
+                        // Send heartbeat matching your backend expectations
+                        stompClient.send('/app/heartbeat', {}, JSON.stringify({
+                            userId: CONFIG.USER.id,
+                            userRole: CONFIG.USER.role,
+                            sessionId: 'session-' + Date.now(),
+                            timestamp: Date.now(),
+                            clientType: 'WEB_MAP'
+                        }));
+                        
+                        console.debug('💓 Heartbeat sent');
+                    } catch (error) {
+                        console.warn('⚠️ Heartbeat failed:', error);
+                        // If heartbeat fails, connection might be dead
+                        isConnected = false;
+                        updateConnectionStatus(false);
+                    }
+                }
+            }, CONFIG.WEBSOCKET.heartbeatInterval);
+        }
+
+        // 🕒 Format Timestamp
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            } catch {
+                return timestamp;
+            }
+        }
+
+        // 📱 Show/Hide Loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // 🚀 Start Application
+        init();
+
+        // 🔄 Enhanced Page Visibility Handling
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !isConnected) {
+                console.log('🔄 Page visible, attempting to reconnect...');
+                showLoading(true);
+                connectWebSocket();
+            }
+        });
+
+        // 🧹 Enhanced Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+            
+            if (stompClient && isConnected) {
+                try {
+                    stompClient.disconnect();
+                } catch (error) {
+                    console.warn('⚠️ Error during disconnect:', error);
+                }
+            }
+        });
+
+        // 🎯 Handle window resize
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

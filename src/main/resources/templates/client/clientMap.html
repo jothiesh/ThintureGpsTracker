@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ GPS Live Map - Real-time Vehicle Tracking</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1000;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: #3498db;
+            color: white;
+        }
+
+        .vehicle-counter {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+        }
+
+        .connection-status {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .connected { 
+            background: rgba(46, 204, 113, 0.2); 
+            color: #27ae60;
+            border: 2px solid #2ecc71;
+        }
+        
+        .disconnected { 
+            background: rgba(231, 76, 60, 0.2); 
+            color: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+
+        .connecting {
+            background: rgba(243, 156, 18, 0.2);
+            color: #f39c12;
+            border: 2px solid #f39c12;
+        }
+
+        .pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .pulse.green { background: #2ecc71; }
+        .pulse.red { background: #e74c3c; }
+        .pulse.orange { background: #f39c12; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 1; }
+            70% { transform: scale(1.05); opacity: 0.7; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+
+        /* Map */
+        #map {
+            width: 100%;
+            height: calc(100vh - 80px);
+        }
+
+        /* Vehicle Popup Styling */
+        .vehicle-popup {
+            min-width: 280px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .popup-header {
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #2c3e50;
+            font-size: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #ecf0f1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .popup-info {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .popup-info div {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .popup-info strong {
+            color: #34495e;
+            min-width: 90px;
+        }
+
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-running { background: #d4edda; color: #155724; }
+        .status-stopped { background: #f8d7da; color: #721c24; }
+        .status-offline { background: #e2e3e5; color: #6c757d; }
+
+        .ignition-on { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 2px 6px; 
+            border-radius: 8px; 
+            font-size: 10px;
+        }
+        
+        .ignition-off { 
+            background: #f8d7da; 
+            color: #721c24; 
+            padding: 2px 6px; 
+            border-radius: 8px; 
+            font-size: 10px;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        /* Debug Panel (Toggle) */
+        .debug-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1000;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .debug-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            max-width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .debug-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .debug-success { color: #00ff00; }
+        .debug-error { color: #ff4444; }
+        .debug-info { color: #44aaff; }
+        .debug-warn { color: #ffaa44; }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 15px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .title {
+                font-size: 18px;
+            }
+            
+            .user-info {
+                font-size: 12px;
+                gap: 10px;
+            }
+            
+            .vehicle-popup {
+                min-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Connecting to GPS Server...</div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="title">
+            🗺️ GPS Live Map
+            <span style="font-size: 12px; opacity: 0.8;">Real-time Vehicle Tracking</span>
+        </div>
+        <div class="user-info">
+            <div class="user-details">
+                <div>User: <strong id="username">Loading...</strong></div>
+                <div class="role-badge" id="roleBadge">Loading...</div>
+            </div>
+            <div class="vehicle-counter">Vehicles: <span id="vehicleCount">0</span></div>
+            <div id="connectionStatus" class="connection-status disconnected">
+                <div class="pulse red"></div>
+                Disconnected
+            </div>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Debug Toggle -->
+    <button class="debug-toggle" onclick="toggleDebug()" title="Toggle Debug Panel">🔧</button>
+    
+    <!-- Debug Panel -->
+    <div id="debugPanel" class="debug-panel">
+        <div style="color: #fff; font-weight: bold; margin-bottom: 10px;">🔧 Debug Console</div>
+        <div id="debugLog"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script>
+        // 🔧 Configuration - Updated for your fixed backend
+        const CONFIG = {
+            // 🔗 Matches your fixed WebSocketConfig
+            WEBSOCKET_URL: '/ws',  // ✅ Your new /ws endpoint
+            API_BASE_URL: '/api',
+            
+            // 👤 User Configuration (will be updated from session)
+            USER: {
+                id: null,
+                username: null,
+                role: null
+            },
+
+            // 🚗 Device filtering
+            allowedDeviceIDs: [], // Will be populated from API
+
+            // 🗺️ Map Settings
+            MAP: {
+                center: [13.0827, 80.2707], // Default center (will auto-center on first vehicle)
+                zoom: 10,
+                maxZoom: 18
+            },
+
+            // ⚙️ WebSocket Settings
+            WEBSOCKET: {
+                reconnectInterval: 3000,
+                heartbeatInterval: 30000,
+                maxReconnectAttempts: 5
+            }
+        };
+
+        // 🗺️ Map and Markers
+        let map;
+        const vehicleMarkers = new Map();
+        let vehicleCount = 0;
+
+        // 🔌 WebSocket
+        let stompClient = null;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+
+        // 📝 Debug System
+        let debugVisible = false;
+
+        // 🚀 Initialize Application
+        function init() {
+            showLoading(true, "Initializing GPS Map...");
+            initializeMap();
+            initializeSession();
+        }
+
+        // 🗺️ Initialize Map
+        function initializeMap() {
+            map = L.map('map').setView(CONFIG.MAP.center, CONFIG.MAP.zoom);
+
+            // Add map tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: CONFIG.MAP.maxZoom
+            }).addTo(map);
+
+            debugLog('🗺️ Map initialized', 'success');
+        }
+
+        // 👤 Initialize Session
+        function initializeSession() {
+            debugLog('🔐 Fetching session info...', 'info');
+            showLoading(true, "Loading user session...");
+            
+            fetch('/api/devices/session-role')
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return res.json();
+                })
+                .then(session => {
+                    // Extract user info
+                    CONFIG.USER.username = session.username;
+                    CONFIG.USER.id = session.id;
+                    
+                    // Extract role from authorities
+                    const authorityObj = session.authorities[0];
+                    let role = '';
+                    
+                    if (typeof authorityObj === 'string') {
+                        role = authorityObj.replace('ROLE_', '').toLowerCase();
+                    } else if (typeof authorityObj === 'object' && authorityObj.authority) {
+                        role = authorityObj.authority.replace('ROLE_', '').toLowerCase();
+                    }
+                    
+                    CONFIG.USER.role = role;
+                    
+                    debugLog(`✅ Session loaded: ${CONFIG.USER.username} | Role: ${CONFIG.USER.role} | ID: ${CONFIG.USER.id}`, 'success');
+                    
+                    updateUserInfo();
+                    
+                    // Get allowed devices
+                    return fetch('/api/devices/my-devices');
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return res.json();
+                })
+                .then(deviceIDs => {
+                    CONFIG.allowedDeviceIDs = deviceIDs.map(d => String(d).trim().toUpperCase());
+                    debugLog(`✅ Allowed Devices: [${CONFIG.allowedDeviceIDs.join(', ')}]`, 'success');
+                    
+                    showLoading(true, "Connecting to GPS server...");
+                    
+                    // Now connect WebSocket
+                    connectWebSocket();
+                })
+                .catch(err => {
+                    debugLog(`❌ Session initialization error: ${err}`, 'error');
+                    showLoading(false);
+                    updateConnectionStatus('disconnected', 'Session Failed');
+                });
+        }
+
+        // 👤 Update User Info Display
+        function updateUserInfo() {
+            document.getElementById('username').textContent = CONFIG.USER.username || 'Unknown';
+            
+            const roleBadge = document.getElementById('roleBadge');
+            roleBadge.textContent = CONFIG.USER.role ? CONFIG.USER.role.toUpperCase() : 'UNKNOWN';
+        }
+
+        // 🔌 Connect to WebSocket
+        function connectWebSocket() {
+            if (isConnected) return;
+
+            debugLog(`🔌 Connecting to WebSocket: ${CONFIG.WEBSOCKET_URL}`, 'info');
+            
+            try {
+                const socket = new SockJS(CONFIG.WEBSOCKET_URL);
+                stompClient = Stomp.over(socket);
+                
+                // Disable debug for cleaner console
+                stompClient.debug = null;
+                
+                // Simple connection (session-based auth)
+                stompClient.connect({}, onConnected, onError);
+                
+            } catch (error) {
+                debugLog(`❌ WebSocket connection error: ${error.message}`, 'error');
+                onError(error);
+            }
+        }
+
+        // ✅ WebSocket Connected
+        function onConnected() {
+            debugLog('✅ WebSocket Connected Successfully!', 'success');
+            isConnected = true;
+            reconnectAttempts = 0;
+            updateConnectionStatus('connected', 'Connected');
+            
+            // Subscribe to location updates
+            subscribeToLocationUpdates();
+            
+            showLoading(false);
+        }
+
+        // ❌ WebSocket Error
+        function onError(error) {
+            debugLog(`❌ WebSocket Error: ${error}`, 'error');
+            isConnected = false;
+            updateConnectionStatus('disconnected', 'Connection Failed');
+            showLoading(false);
+            
+            // Attempt reconnection
+            if (reconnectAttempts < CONFIG.WEBSOCKET.maxReconnectAttempts) {
+                reconnectAttempts++;
+                const delay = CONFIG.WEBSOCKET.reconnectInterval * reconnectAttempts;
+                
+                debugLog(`🔄 Reconnecting in ${delay/1000}s... (Attempt ${reconnectAttempts})`, 'warn');
+                updateConnectionStatus('connecting', `Reconnecting (${reconnectAttempts})...`);
+                
+                setTimeout(connectWebSocket, delay);
+            } else {
+                debugLog('❌ Max reconnection attempts reached', 'error');
+                updateConnectionStatus('disconnected', 'Failed - Refresh Page');
+            }
+        }
+
+        // 📡 Subscribe to Location Updates
+        function subscribeToLocationUpdates() {
+            const topic = `/topic/location-updates/${CONFIG.USER.role}/${CONFIG.USER.id}`;
+            
+            debugLog(`📡 Subscribing to: ${topic}`, 'info');
+            
+            try {
+                stompClient.subscribe(topic, (message) => {
+                    try {
+                        const data = JSON.parse(message.body);
+                        debugLog(`📍 Received location update: ${data.deviceID || data.deviceId}`, 'success');
+                        
+                        handleLocationUpdate(data);
+                        
+                    } catch (error) {
+                        debugLog(`❌ Error processing location update: ${error.message}`, 'error');
+                    }
+                });
+                
+                debugLog(`✅ Successfully subscribed to: ${topic}`, 'success');
+                debugLog(`🎯 Waiting for live GPS data from your ${CONFIG.allowedDeviceIDs.length} devices...`, 'info');
+                
+            } catch (error) {
+                debugLog(`❌ Subscription failed: ${error.message}`, 'error');
+            }
+        }
+
+        // 📍 Handle Location Updates
+        function handleLocationUpdate(data) {
+            // Handle both single and array data
+            const locations = Array.isArray(data) ? data : [data];
+            
+            locations.forEach(location => {
+                const deviceId = (location.deviceID || location.deviceId || '').trim().toUpperCase();
+                
+                // Filter by allowed devices
+                if (CONFIG.allowedDeviceIDs.length > 0 && !CONFIG.allowedDeviceIDs.includes(deviceId)) {
+                    debugLog(`🚫 Device not in allowed list: ${deviceId}`, 'warn');
+                    return;
+                }
+                
+                updateVehicleOnMap(location);
+            });
+        }
+
+        // 🚗 Update Vehicle on Map
+        function updateVehicleOnMap(locationData) {
+            const deviceId = (locationData.deviceID || locationData.deviceId || '').trim().toUpperCase();
+            
+            if (!deviceId) {
+                debugLog('❌ Missing device ID in location data', 'error');
+                return;
+            }
+
+            const lat = parseFloat(locationData.latitude);
+            const lng = parseFloat(locationData.longitude);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                debugLog(`❌ Invalid coordinates for device: ${deviceId}`, 'error');
+                return;
+            }
+
+            // Create popup content
+            const popupContent = createPopupContent(locationData, deviceId, lat, lng);
+
+            if (vehicleMarkers.has(deviceId)) {
+                // Update existing marker
+                const marker = vehicleMarkers.get(deviceId);
+                marker.setLatLng([lat, lng]);
+                marker.getPopup().setContent(popupContent);
+                
+                debugLog(`🔄 Updated vehicle ${deviceId} at [${lat.toFixed(6)}, ${lng.toFixed(6)}]`, 'success');
+                
+            } else {
+                // Create new marker
+                const markerColor = getMarkerColor(locationData);
+                
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 10,
+                    fillColor: markerColor,
+                    color: '#fff',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                })
+                .addTo(map)
+                .bindPopup(popupContent)
+                .openPopup();
+                
+                vehicleMarkers.set(deviceId, marker);
+                vehicleCount++;
+                updateVehicleCounter();
+                
+                debugLog(`🆕 Added new vehicle ${deviceId} at [${lat.toFixed(6)}, ${lng.toFixed(6)}]`, 'success');
+                
+                // Auto-center map on first vehicle
+                if (vehicleCount === 1) {
+                    map.setView([lat, lng], 15);
+                    debugLog(`🎯 Centered map on first vehicle: ${deviceId}`, 'info');
+                }
+            }
+        }
+
+        // 🎨 Get Marker Color
+        function getMarkerColor(locationData) {
+            const ignition = (locationData.ignition || '').toUpperCase();
+            const speed = parseFloat(locationData.speed || '0');
+            
+            if (ignition === 'ON' || ignition === 'IGON') {
+                return speed > 5 ? '#2ecc71' : '#f39c12'; // Green if moving, orange if stopped
+            } else {
+                return '#e74c3c'; // Red if ignition off
+            }
+        }
+
+        // 🎈 Create Popup Content
+        function createPopupContent(locationData, deviceId, lat, lng) {
+            const speed = locationData.speed || '0';
+            const ignition = locationData.ignition || 'Unknown';
+            const timestamp = locationData.timestamp || 'Unknown';
+            const vehicleStatus = locationData.vehicleStatus || 'Unknown';
+            const course = locationData.course || 'N/A';
+            const gsmStrength = locationData.gsmStrength || 'N/A';
+            
+            // Format timestamp
+            const formattedTime = formatTimestamp(timestamp);
+            
+            // Status classes
+            const statusClass = vehicleStatus.toLowerCase().includes('running') ? 'status-running' : 
+                               vehicleStatus.toLowerCase().includes('stopped') ? 'status-stopped' : 'status-offline';
+                               
+            const ignitionClass = (ignition.toUpperCase() === 'ON' || ignition.toUpperCase() === 'IGON') ? 'ignition-on' : 'ignition-off';
+
+            return `
+                <div class="vehicle-popup">
+                    <div class="popup-header">
+                        🚗 ${deviceId}
+                        <span class="status-badge ${statusClass}">${vehicleStatus}</span>
+                    </div>
+                    <div class="popup-info">
+                        <div><strong>Speed:</strong> <span>${speed} km/h</span></div>
+                        <div><strong>Ignition:</strong> <span class="${ignitionClass}">${ignition}</span></div>
+                        <div><strong>Direction:</strong> <span>${course}°</span></div>
+                        <div><strong>Signal:</strong> <span>${gsmStrength}</span></div>
+                        <div><strong>Location:</strong> <span>${lat.toFixed(6)}, ${lng.toFixed(6)}</span></div>
+                        <div><strong>Updated:</strong> <span>${formattedTime}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 🔄 Update Connection Status
+        function updateConnectionStatus(status, message) {
+            const statusElement = document.getElementById('connectionStatus');
+            
+            statusElement.className = `connection-status ${status}`;
+            
+            const pulseClass = status === 'connected' ? 'green' : 
+                              status === 'connecting' ? 'orange' : 'red';
+            
+            statusElement.innerHTML = `<div class="pulse ${pulseClass}"></div> ${message}`;
+        }
+
+        // 📊 Update Vehicle Counter
+        function updateVehicleCounter() {
+            document.getElementById('vehicleCount').textContent = vehicleCount;
+        }
+
+        // 🕒 Format Timestamp
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            } catch {
+                return timestamp;
+            }
+        }
+
+        // 📱 Show/Hide Loading
+        function showLoading(show, message = "Loading...") {
+            const overlay = document.getElementById('loadingOverlay');
+            const text = overlay.querySelector('.loading-text');
+            
+            overlay.style.display = show ? 'flex' : 'none';
+            if (message) text.textContent = message;
+        }
+
+        // 🔧 Debug System
+        function debugLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('debugLog');
+            const entry = document.createElement('div');
+            entry.className = `debug-entry debug-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            // Keep only last 50 entries
+            while (logElement.children.length > 50) {
+                logElement.removeChild(logElement.firstChild);
+            }
+            
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function toggleDebug() {
+            debugVisible = !debugVisible;
+            document.getElementById('debugPanel').style.display = debugVisible ? 'block' : 'none';
+        }
+
+        // 🚀 Start Application
+        debugLog('🚀 Starting GPS Live Map Application...', 'info');
+        init();
+
+        // 🔄 Handle page visibility
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !isConnected) {
+                debugLog('🔄 Page visible, attempting to reconnect...', 'info');
+                connectWebSocket();
+            }
+        });
+
+        // 🧹 Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (stompClient && isConnected) {
+                try {
+                    stompClient.disconnect();
+                } catch (error) {
+                    console.warn('Error during disconnect:', error);
+                }
+            }
+        });
+
+        // 🎯 Handle window resize
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

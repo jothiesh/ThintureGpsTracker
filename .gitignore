@@ -1,0 +1,41 @@
+# Maven
+
+
+
+
+
+# Remove git and start fresh again
+rm -rf .git
+
+# Remove any nested duplicate folders
+rm -rf ThintureGpsTracker/ThintureGpsTracker/
+
+# Initialize fresh git
+git init
+
+# Add .gitignore
+cat > .gitignore << 'EOF'
+# Maven
+target/
+bin/
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Sensitive config files
+application-local.properties
+application-prod.properties
+
+# OS files
+.DS_Store
+Thumbs.db

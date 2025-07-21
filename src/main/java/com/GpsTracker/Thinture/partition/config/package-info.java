@@ -1,0 +1,1 @@
+package com.GpsTracker.Thinture.partition.config;
